@@ -1,0 +1,21 @@
+{
+  "name": "rockpaperscissors",
+  "version": "0.0.1",
+  "description": "Rock Paper Scissors Game",
+  "main": "index.js",
+  "scripts": {
+    "test": "truffle test"
+  },
+  "keywords": [
+    "Ethereum",
+    "Solidity",
+    "Rock",
+    "Paper",
+    "Scissors"
+  ],
+  "author": "Rinaldo Rossi",
+  "license": "ISC",
+  "dependencies": {
+    "truffle": "^4.1.5"
+  }
+}
