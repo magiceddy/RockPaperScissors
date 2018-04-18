@@ -22,6 +22,7 @@ contract RockPaperScissors {
         bytes32 hashBet;
         bool join;
         uint8 move;
+        uint256 balance;
     }
 
     struct Match {
@@ -39,7 +40,6 @@ contract RockPaperScissors {
     mapping(bytes32 => mapping(address => Player)) public playersByGame;
     mapping(uint8 => uint8) public validBets;
     mapping(address => uint256) public balance;
-    mapping(address => uint256) public pendingBalance;
 
     function RockPaperScissors() public {
         owner = msg.sender;
@@ -127,8 +127,8 @@ contract RockPaperScissors {
         require(validBets[_move] != 0);
         require(keccak256(_move, _secretKey) == playersByGame[_id][msg.sender].hashBet);
 
-        pendingBalance[msg.sender] += msg.value;
         games[_id].revealCount++;
+        playersByGame[_id][msg.sender].balance = msg.value;
         playersByGame[_id][msg.sender].move = _move;
 
         if (games[_id].revealCount == maxReveal) {
@@ -147,14 +147,14 @@ contract RockPaperScissors {
         uint8 pl2Move = playersByGame[_id][pl2].move;
         uint256 amount = games[_id].amount;
 
-        require(pendingBalance[pl1] >= amount);
-        require(pendingBalance[pl2] >= amount);
-
-        pendingBalance[pl1] -= amount;
-        pendingBalance[pl2] -= amount;
+        playersByGame[_id][pl1].balance -= amount;
+        playersByGame[_id][pl2].balance -= amount;
 
         if(pl1Move == pl2Move) {
             balance[pl2] -= amount;
+            balance[pl1] += amount;
+        } else if (pl1Move == validBets[playersByGame[_id][pl2].move]) {
+            balance[pl2] += amount;
             balance[pl1] += amount;
         } else {
             balance[pl1] -= amount;
@@ -170,11 +170,11 @@ contract RockPaperScissors {
     function reclaimPending(bytes32 _id) public returns (bool) {
         require(games[_id].gameEnd < block.number);
         require(games[_id].state == GameState.BettingEnd);
-        require(playersByGame[_id][msg.sender].move > 0);
+        require(playersByGame[_id][msg.sender].balance > 0);
 
-        uint256 amount = games[_id].amount;
+        uint256 amount = playersByGame[_id][msg.sender].balance;
+        playersByGame[_id][msg.sender].balance = 0;
 
-        pendingBalance[msg.sender] -= amount;
         balance[msg.sender] += amount;
         games[_id].state = GameState.PendingReclaimed;
         return true;
