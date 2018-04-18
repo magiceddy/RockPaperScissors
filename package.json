@@ -2,20 +2,24 @@
   "name": "rockpaperscissors",
   "version": "0.0.1",
   "description": "Rock Paper Scissors Game",
-  "main": "index.js",
+  "main": "",
   "scripts": {
-    "test": "truffle test"
+    "truffle_compile": "./node_modules/.bin/truffle compile",
+    "truffle_migrate": "./node_modules/.bin/truffle migrate --reset",
+    "truffle_test": "./node_modules/.bin/truffle test",
+    "ganache": "./node_modules/.bin/ganache-cli"
   },
   "keywords": [
     "Ethereum",
     "Solidity",
-    "Rock",
-    "Paper",
-    "Scissors"
+    "RockPaperScissors"
   ],
   "author": "Rinaldo Rossi",
   "license": "ISC",
   "dependencies": {
-    "truffle": "^4.1.5"
+    "bluebird": "^3.5.1",
+    "ganache-cli": "^6.1.0",
+    "truffle": "^4.1.5",
+    "web3": "^0.20.6"
   }
 }
