@@ -1,7 +1,79 @@
 pragma solidity 0.4.21;
 
+import "./IRockPaperScissors.sol";
+import "./Ownable.sol";
+import "./Player.sol";
 
-contract RockPaperScissors {
+contract RockPaperScissors is IRockPaperScissors, Ownable {
+
+	uint8 public constant MAX_PLAYERS = 2;
+
+	uint256 public betAmount;
+	uint256 public end;
+
+	enum GameState {
+        Hanging,
+        Created,
+        Start,
+        PlayersReached,
+        BettingEnd,
+        RevealWinner,
+        PendingReclaimed
+    }
+	GameState public state;
+	Player[] public players;
+
+	event LogStateChange(GameState gameState);
+
+	function RockPaperScissors() public {}
+
+	function createGame(
+        uint256 _betAmount,
+        uint256 _endGame,
+        uint8 _initialStatus
+    )
+		public
+		returns (bool)
+	{
+		require(_endGame > 0);
+        require(_initialStatus < 2);
+
+		betAmount = _betAmount;
+		end = _endGame;
+		emit LogNewGame(betAmount, end);
+
+		state = GameState(_initialStatus);
+		emit LogStateChange(state);
+		return true;
+	}
+
+	function addPlayer(address _player) public returns (bool) {
+        require(state == GameState.Created);
+        require(players.length < 2);
+
+		players.push(new Player(_player));
+		return true;
+	}
+
+	function bet() public payable returns (bool) {
+        return true;
+    }
+
+	function widthdrawal(uint256 _amount) public returns (bool) {
+        return true;
+    }
+
+	function checkWinner() public returns (bool) {
+        return true;
+    }
+
+	function revealBet() public returns (bool) {
+        return true;
+    }
+}
+
+
+/* contract RockPaperScissors {
     address public owner;
     bytes32 public id;
     uint256 public end;
@@ -73,7 +145,7 @@ contract RockPaperScissors {
     {
         require(games[_id].state == GameState.Start);
 
-        playersByGame[_id][msg.sender] = Player(0, true, 0);
+        playersByGame[_id][msg.sender] = Player(0, true, 0, 0);
         games[_id].playersCount++;
         games[_id].player1 = msg.sender;
 
@@ -200,4 +272,4 @@ contract RockPaperScissors {
     function() public {
         revert();
     }
-}
+} */
