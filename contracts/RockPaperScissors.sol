@@ -34,6 +34,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         uint8 _initialStatus
     )
 		public
+        onlyOwner
 		returns (bool)
 	{
 		require(_endGame > 0);
@@ -48,7 +49,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 		return true;
 	}
 
-	function addPlayer(address _player) public returns (bool) {
+	function addPlayer(address _player) public  onlyOwner returns (bool) {
         require(state == GameState.Created);
         require(playersCount < 2);
 

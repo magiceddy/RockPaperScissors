@@ -81,6 +81,22 @@ contract('RockPaperScissors', accounts => {
 					assert.include(err.message, 'revert', 'no revert wrong state');
 				}
 			});
+
+			it('should fail with no owner calling', async() => {
+				try {
+					const txObject = await instance.createGame(
+						amount, end, 3,
+						{ from: player1 }
+					);
+					assert.isUndefined(txObject, 'no owner create a game');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert incorrect owner calling'
+					);
+				}
+			});
 		});
 
 		describe('success case', () => {
@@ -174,6 +190,20 @@ contract('RockPaperScissors', accounts => {
 						err.message,
 						'revert',
 						'no revert adding third player'
+					);
+				}
+			});
+
+			it('should fail with no owner call', async() => {
+				await instance.createGame(amount, end, initialState, { from: owner });
+				try {
+					const txObject = await instance.addPlayer(accounts[3], { from : player1 });
+					assert.isUndefined(txObject, 'no owner add player');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert when no owner add a player'
 					);
 				}
 			});
