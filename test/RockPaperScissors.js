@@ -15,9 +15,9 @@ contract('RockPaperScissors', accounts => {
 	const player1 = accounts[1];
 	const player2 = accounts[2];
 
-	const id = "My Game";
 	const amount = 10;
 	const end = 3
+	const bet = web3.sha3('1');
 
 	beforeEach(async() => {
 		instance = await RockPaperScissors.new({ from: owner });
@@ -198,7 +198,122 @@ contract('RockPaperScissors', accounts => {
 				const state = await instance.state();
 
 				assert.equal(state.toString(10), 2, 'no PlayersReached state');
-				assert.equal(txObject.logs[0].event, 'LogStateChange', 'no LogStateChange');
+				assert.equal(txObject.logs[0].event, 'LogNewPlayer', 'no LogNewPlayer');
+				assert.equal(txObject.logs[1].event, 'LogStateChange', 'no LogStateChange');
+			});
+		});
+	});
+
+	describe('bet', () => {
+
+		beforeEach(async() => {
+			await instance.createGame(amount, end, { from: owner });
+			await instance.addPlayer(player1, { from: owner });
+			await instance.addPlayer(player2, { from: owner });
+		});
+
+		describe('fail case', () => {
+
+			it('should fail with value in transaction', async() => {
+				try {
+					const txObject = await instance.bet(
+						player1, bet,
+						{ from: owner, value: amount }
+					);
+					assert.isUndefined(txObject, 'bet with value in transaction');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert for value in transactin'
+					);
+				}
+			});
+
+			it('should fail from no owner', async() => {
+				try {
+					const txObject = await instance.bet(
+						player1, bet,
+						{ from: player2, value: 0 }
+					);
+					assert.isUndefined(txObject, 'bet from no owner');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert from no owner transaction'
+					);
+				}
+			});
+
+			it('should fail if state isn\'t PlayersReached', async() => {
+				const thisInstance = await RockPaperScissors.new({ from: owner });
+				await thisInstance.createGame(amount, end, { from: owner });
+				await thisInstance.addPlayer(player1, { from: owner });
+
+				try {
+					const txObject = await instance.bet(
+						owner, bet,
+						{ from: player2, value: 0 }
+					);
+					assert.isUndefined(txObject, 'bet in no PlayersReached state');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert in no PlayersReached state'
+					);
+				}
+			});
+
+			it('should fail for zero bet', async() => {
+				try {
+					const txObject = await instance.bet(
+						owner, 0x0,
+						{ from: player2, value: 0 }
+					);
+					assert.isUndefined(txObject, 'bet with zero');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert bet with zero'
+					);
+				}
+			});
+		});
+
+		describe('success case', () => {
+
+			let txObject;
+
+			it('should bet', async() => {
+				await instance.bet(player1, bet, { from: owner });
+				txObject = await instance.bet(player2, bet, { from: owner });
+
+				const betCount = await instance.betCount();
+				assert.equal(betCount, 2, 'wrong bet count');
+
+				const state = await instance.state();
+				assert.equal(state.toString(10), 3, 'wrong state');
+
+				const player1Address = await instance.players(player1);
+				const player2Address = await instance.players(player2);
+				const Player1 = Player.at(player1Address);
+				const Player2 = Player.at(player1Address);
+				const Player1Bet = await Player1.hashBet();
+				const Player2Bet = await Player2.hashBet();
+
+				assert.equal(Player1Bet, bet, 'register wrong bet');
+				assert.equal(Player2Bet, bet, 'register wrong bet');
+			});
+
+			it('should log', () => {
+				const { logs } = txObject;
+				assert.equal(logs[0].event, 'LogBet', 'wrong Log');
+				assert.equal(logs[0].args._player, player2, 'wrong player');
+				assert.equal(logs[0].args._value, bet, 'wrong player');
+				assert.equal(logs[1].event, 'LogStateChange', 'wrong Log');
 			});
 		});
 	});

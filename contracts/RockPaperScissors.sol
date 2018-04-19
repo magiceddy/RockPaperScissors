@@ -11,6 +11,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 	uint256 public betAmount;
 	uint256 public end;
     uint8 public playersCount;
+    uint8 public betCount;
 
 	enum GameState {
         Hanging,
@@ -54,8 +55,10 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         require(state == GameState.Created);
         require(playersCount < 2);
 
-        playersCount++;
 		players[_player] = new Player(_player);
+        playersCount++;
+
+        emit LogNewPlayer(_player);
 
         if(playersCount == MAX_PLAYERS) {
             state = GameState.PlayersReached;
@@ -64,7 +67,27 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 		return true;
 	}
 
-	function bet() public payable returns (bool) {
+	function bet(address _player, bytes32 _bet)
+        public
+        payable
+        onlyOwner
+        returns (bool)
+    {
+        require(msg.value == 0);
+        require(state == GameState.PlayersReached);
+        require(_bet != 0x0);
+
+        Player player = getPlayer(_player);
+        require(player.setHashBet(_bet));
+        betCount++;
+
+        emit LogBet(_player, _bet);
+
+        if(betCount == MAX_PLAYERS) {
+            state = GameState.BettingEnd;
+            emit LogStateChange(state);
+        }
+
         return true;
     }
 
@@ -78,6 +101,11 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 
 	function revealBet() public returns (bool) {
         return true;
+    }
+
+    function getPlayer(address _player) public view returns (Player) {
+        require(players[_player] != address(0x0));
+        return Player(players[_player]);
     }
 }
 
