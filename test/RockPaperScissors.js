@@ -17,7 +17,6 @@ contract('RockPaperScissors', accounts => {
 
 	const id = "My Game";
 	const amount = 10;
-	const initialState = 1;
 	const end = 3
 
 	beforeEach(async() => {
@@ -40,7 +39,9 @@ contract('RockPaperScissors', accounts => {
 
 			it('should set the contract owner', async() => {
 				const contractOwner = await instance.owner();
+				const state = await instance.state();
 				assert.strictEqual(contractOwner, owner, 'Invalid Owner');
+				assert.equal(state, 0, 'wrong state');
 			});
 		});
 	});
@@ -52,7 +53,7 @@ contract('RockPaperScissors', accounts => {
 			it('should fail with value in transaction', async() => {
 				await TestUtils.noValue(
 					instance.createGame(
-						amount, end, initialState,
+						amount, end,
 						{ from : owner, value: amount }
 					)
 				);
@@ -61,7 +62,7 @@ contract('RockPaperScissors', accounts => {
 			it('should revert with zero end', async() => {
 				try {
 					const txObject = await instance.createGame(
-						amount, 0, initialState,
+						amount, 0,
 						{ from: owner }
 					);
 					assert.isUndefined(txObject, 'game created with zero end');
@@ -70,22 +71,10 @@ contract('RockPaperScissors', accounts => {
 				}
 			});
 
-			it('should revert with wrong initial state', async() => {
-				try {
-					const txObject = await instance.createGame(
-						amount, end, 3,
-						{ from: owner }
-					);
-					assert.isUndefined(txObject, 'game created with wrong state');
-				} catch (err) {
-					assert.include(err.message, 'revert', 'no revert wrong state');
-				}
-			});
-
 			it('should fail with no owner calling', async() => {
 				try {
 					const txObject = await instance.createGame(
-						amount, end, 3,
+						amount, end,
 						{ from: player1 }
 					);
 					assert.isUndefined(txObject, 'no owner create a game');
@@ -104,7 +93,7 @@ contract('RockPaperScissors', accounts => {
 
 			it('should create the game', async() => {
 				txObject = await instance.createGame(
-					amount, end, initialState,
+					amount, end,
 					{ from: owner }
 				);
 				const betAmount = await instance.betAmount();
@@ -113,7 +102,7 @@ contract('RockPaperScissors', accounts => {
 
 				assert.equal(betAmount, amount, 'wrong amount');
 				assert.equal(_end, end, 'wrong end');
-				assert.equal(state, initialState, 'wrong state');
+				assert.equal(state, 1, 'wrong state');
 			});
 
 			it('should log all event', () => {
@@ -133,11 +122,6 @@ contract('RockPaperScissors', accounts => {
 					LogNewGameArgs._endGame.toString(10),
 					end,
 					'wrong log end'
-				);
-				assert.equal(
-					LogStateChangeArgs.gameState.toString(10),
-					initialState,
-					'wrong log state'
 				);
 			});
 		});
@@ -162,23 +146,8 @@ contract('RockPaperScissors', accounts => {
 				}
 			});
 
-			it('should fail on Hanging game', async() => {
-				await instance.createGame(amount, end, 0, { from: owner });
-
-				try {
-					const txObject = await instance.addPlayer(player1, { from : owner });
-					assert.isUndefined(txObject, 'add player on Hanging game');
-				} catch (err) {
-					assert.include(
-						err.message,
-						'revert',
-						'no revert adding player on Hanging game'
-					);
-				}
-			});
-
 			it('should fail with more than two players', async() => {
-				await instance.createGame(amount, end, initialState, { from: owner });
+				await instance.createGame(amount, end, { from: owner });
 				await instance.addPlayer(player1, { from : owner });
 				await instance.addPlayer(player2, { from : owner });
 
@@ -195,7 +164,7 @@ contract('RockPaperScissors', accounts => {
 			});
 
 			it('should fail with no owner call', async() => {
-				await instance.createGame(amount, end, initialState, { from: owner });
+				await instance.createGame(amount, end, { from: owner });
 				try {
 					const txObject = await instance.addPlayer(accounts[3], { from : player1 });
 					assert.isUndefined(txObject, 'no owner add player');
@@ -212,13 +181,24 @@ contract('RockPaperScissors', accounts => {
 		describe('success case', () => {
 
 			it('should add player to game', async() => {
-				await instance.createGame(amount, end, initialState, { from: owner });
+				await instance.createGame(amount, end, { from: owner });
 				await instance.addPlayer(player1, { from : owner });
 
 				const playerAddress = await instance.players(player1);
 				const playerInstance = Player.at(playerAddress);
 				const _player = await playerInstance.playerAddress();
 				assert.equal(_player, player1, 'add wrong player');
+			});
+
+			it('should chage state to PlayersReached', async() => {
+				await instance.createGame(amount, end, { from: owner });
+				await instance.addPlayer(player1, { from : owner });
+
+				const txObject = await instance.addPlayer(player2, { from : owner });
+				const state = await instance.state();
+
+				assert.equal(state.toString(10), 2, 'no PlayersReached state');
+				assert.equal(txObject.logs[0].event, 'LogStateChange', 'no LogStateChange');
 			});
 		});
 	});
