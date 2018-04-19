@@ -10,6 +10,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 
 	uint256 public betAmount;
 	uint256 public end;
+    uint8 public playersCount;
 
 	enum GameState {
         Hanging,
@@ -21,7 +22,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         PendingReclaimed
     }
 	GameState public state;
-	Player[] public players;
+    mapping(address => Player) public players;
 
 	event LogStateChange(GameState gameState);
 
@@ -49,9 +50,10 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 
 	function addPlayer(address _player) public returns (bool) {
         require(state == GameState.Created);
-        require(players.length < 2);
+        require(playersCount < 2);
 
-		players.push(new Player(_player));
+        playersCount++;
+		players[_player] = new Player(_player);
 		return true;
 	}
 

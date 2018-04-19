@@ -185,7 +185,7 @@ contract('RockPaperScissors', accounts => {
 				await instance.createGame(amount, end, initialState, { from: owner });
 				await instance.addPlayer(player1, { from : owner });
 
-				const playerAddress = await instance.players(0);
+				const playerAddress = await instance.players(player1);
 				const playerInstance = Player.at(playerAddress);
 				const _player = await playerInstance.playerAddress();
 				assert.equal(_player, player1, 'add wrong player');
