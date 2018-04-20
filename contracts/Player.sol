@@ -9,8 +9,13 @@ contract Player is Ownable {
 	uint8 public bet;
 	bool public hasBet;
 
+	event LogPlayer(address _player);
+	event LogHashbet(bytes32 _hashBet);
+	event LogBet(uint8 _bet);
+
 	function Player(address _player) public {
 		playerAddress = _player;
+		emit LogPlayer(_player);
 	}
 
 	function setHashBet(bytes32 _hashBet) public onlyOwner returns (bool) {
@@ -18,6 +23,8 @@ contract Player is Ownable {
 
 		hasBet = true;
 		hashBet = _hashBet;
+
+		emit LogHashbet(hashBet);
 		return true;
 	}
 
@@ -27,6 +34,8 @@ contract Player is Ownable {
 		require(hashBet != 0x0);
 
 		bet = _bet;
+
+		emit LogBet(bet);
 		return true;
 	}
 }
