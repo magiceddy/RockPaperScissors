@@ -2,6 +2,7 @@ const Promise = require('bluebird');
 const RockPaperScissors = artifacts.require("./RockPaperScissors.sol");
 const Player = artifacts.require("./Player.sol");
 const TestUtils = require('../TestUtils.js');
+const Web3Utils = require('web3-utils');
 
 Promise.promisifyAll(web3.eth, { suffix: "Promise" });
 Promise.promisifyAll(web3.personal, { suffix: "Promise" });
@@ -16,8 +17,20 @@ contract('RockPaperScissors', accounts => {
 	const player2 = accounts[2];
 
 	const amount = 10;
-	const end = 3
-	const bet = web3.sha3('1');
+	const end = 3;
+	const secretKey = web3.sha3('secretKey');
+	const bet = 2;
+
+	const hashBet = Web3Utils.soliditySha3(
+		{
+			t: 'uint8',
+			v: bet
+		},
+		{
+			t: 'bytes32',
+			v: secretKey
+		});
+
 
 	beforeEach(async() => {
 		instance = await RockPaperScissors.new({ from: owner });
@@ -217,7 +230,7 @@ contract('RockPaperScissors', accounts => {
 			it('should fail with value in transaction', async() => {
 				try {
 					const txObject = await instance.bet(
-						player1, bet,
+						player1, hashBet,
 						{ from: owner, value: amount }
 					);
 					assert.isUndefined(txObject, 'bet with value in transaction');
@@ -233,7 +246,7 @@ contract('RockPaperScissors', accounts => {
 			it('should fail from no owner', async() => {
 				try {
 					const txObject = await instance.bet(
-						player1, bet,
+						player1, hashBet,
 						{ from: player2, value: 0 }
 					);
 					assert.isUndefined(txObject, 'bet from no owner');
@@ -253,7 +266,7 @@ contract('RockPaperScissors', accounts => {
 
 				try {
 					const txObject = await instance.bet(
-						owner, bet,
+						owner, hashBet,
 						{ from: player2, value: 0 }
 					);
 					assert.isUndefined(txObject, 'bet in no PlayersReached state');
@@ -288,8 +301,8 @@ contract('RockPaperScissors', accounts => {
 			let txObject;
 
 			it('should bet', async() => {
-				await instance.bet(player1, bet, { from: owner });
-				txObject = await instance.bet(player2, bet, { from: owner });
+				await instance.bet(player1, hashBet, { from: owner });
+				txObject = await instance.bet(player2, hashBet, { from: owner });
 
 				const betCount = await instance.betCount();
 				assert.equal(betCount, 2, 'wrong bet count');
@@ -304,16 +317,136 @@ contract('RockPaperScissors', accounts => {
 				const Player1Bet = await Player1.hashBet();
 				const Player2Bet = await Player2.hashBet();
 
-				assert.equal(Player1Bet, bet, 'register wrong bet');
-				assert.equal(Player2Bet, bet, 'register wrong bet');
+				assert.equal(Player1Bet, hashBet, 'register wrong bet');
+				assert.equal(Player2Bet, hashBet, 'register wrong bet');
 			});
 
 			it('should log', () => {
 				const { logs } = txObject;
 				assert.equal(logs[0].event, 'LogBet', 'wrong Log');
 				assert.equal(logs[0].args._player, player2, 'wrong player');
-				assert.equal(logs[0].args._value, bet, 'wrong player');
+				assert.equal(logs[0].args._value, hashBet, 'wrong player');
 				assert.equal(logs[1].event, 'LogStateChange', 'wrong Log');
+			});
+		});
+	});
+
+	describe('revealBet', () => {
+
+		beforeEach(async() => {
+			await instance.createGame(amount, end, { from: owner });
+			await instance.addPlayer(player1, { from: owner });
+			await instance.addPlayer(player2, { from: owner });
+			await instance.bet(player1, hashBet, { from: owner });
+		});
+
+		describe('fail case', () => {
+
+			it('shoul fail with value in transaction', async() => {
+				await TestUtils.noValue(instance.revealBet(
+					player1, bet, secretKey,
+					{ from: owner, value: 1 }
+				));
+			});
+
+			it('should fail transaction no owner', async() => {
+				try {
+					const txObject = await instance.revealBet(
+						player1, bet, secretKey,
+						{ from: player1 }
+					);
+					assert.isUndefined(txObject, 'no owner transaction');
+				} catch (err) {
+					assert.include(err.message, 'revert', 'no revert no owner tx');
+				}
+			});
+
+			it('should fail if state not equal BettingEnd', async() => {
+				try {
+					const txObject = await instance.revealBet(
+						player1, bet, secretKey,
+						{ from: owner }
+					);
+					assert.isUndefined(txObject, 'bet without betting end state');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert without betting end state'
+					);
+				}
+			});
+
+			it('should fail for invalid reveal', async() => {
+				await instance.bet(player2, hashBet, { from: owner });
+				try {
+					const txObject = await instance.revealBet(
+						player1, 0xaa, secretKey,
+						{ from: owner }
+					);
+					assert.isUndefined(txObject, 'bet without bettingEnd state');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert without bettingEnd state'
+					);
+				}
+			});
+
+			it('should fail with double reveal', async() => {
+				await instance.bet(player2, hashBet, { from: owner });
+				await instance.revealBet(
+					player1, bet, secretKey,
+					{ from: owner }
+				);
+				 try {
+					 const txObject = await await instance.revealBet(
+	 					player1, bet, secretKey,
+	 					{ from: owner }
+	 				);
+					assert.isUndefined(txObject, 'double reveal');
+				} catch (err) {
+					assert.include(err.message, 'revert', 'no revert double reveal');
+				}
+			});
+		});
+
+		describe('success case', () => {
+
+			let txObject;
+
+			it('should set state to RevealWinner', async() => {
+				await instance.bet(player2, hashBet, { from: owner });
+				await instance.revealBet(
+					player1, bet, secretKey,
+					{ from: owner }
+				);
+				txObject = await instance.revealBet(
+					player2, bet, secretKey,
+					{ from: owner }
+				);
+
+				const revealCount = await instance.revealCount();
+				assert.equal(revealCount, 2, 'wrong revealCount');
+
+				const player1Address = await instance.players(player1);
+				const Player1 = Player.at(player1Address);
+				const Player1Bet = await Player1.bet();
+				assert.equal(Player1Bet, bet, 'wrong bet');
+
+				const state = await instance.state();
+				assert.equal(state, 4, 'wrong state');
+			});
+
+			it('should log', () => {
+				const logs = txObject.logs;
+				assert.equal(logs[0].event, 'LogRevealBet', 'no LogRevealBet');
+				assert.equal(logs[1].event, 'LogStateChange', 'no LogStateChange');
+				assert.equal(logs[0].args._player, player2, 'wrong player in log');
+				assert.equal(logs[0].args._bet, bet, 'wrong bet in log');
+				assert.equal(logs[0].args._totalBet, 2, 'wrong totalBet in log');
+				assert.equal(logs[1].args.gameState, 4, 'wrong state in log');
 			});
 		});
 	});

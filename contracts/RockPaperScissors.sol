@@ -12,6 +12,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 	uint256 public end;
     uint8 public playersCount;
     uint8 public betCount;
+    uint8 public revealCount;
 
 	enum GameState {
         Hanging,
@@ -22,12 +23,18 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         PendingReclaimed
     }
 	GameState public state;
+
     mapping(address => Player) public players;
+    mapping(uint8 => uint8) public validBets;
 
 	event LogStateChange(GameState gameState);
 
 	function RockPaperScissors() public {
         state = GameState.Hanging;
+        validBets[1] = 3; // Rock
+        validBets[2] = 1; // Paper
+        validBets[3] = 2; // Scissors
+
         emit LogStateChange(state);
     }
 
@@ -99,7 +106,25 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         return true;
     }
 
-	function revealBet() public returns (bool) {
+	function revealBet(address _player, uint8 _bet, bytes32 _secretKey)
+        public
+        onlyOwner
+        returns (bool)
+    {
+        require(state == GameState.BettingEnd);
+
+        Player player = getPlayer(_player);
+        require(keccak256(_bet, _secretKey) == player.hashBet());
+
+        require(player.setBet(_bet));
+        revealCount++;
+
+        emit LogRevealBet(_player, _bet, revealCount);
+
+        if (revealCount == MAX_PLAYERS) {
+            state = GameState.RevealWinner;
+            emit LogStateChange(state);
+        }
         return true;
     }
 
