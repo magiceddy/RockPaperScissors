@@ -13,6 +13,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
     uint8 public playersCount;
     uint8 public betCount;
     uint8 public revealCount;
+    uint8 public winnerIndex;
 
 	enum GameState {
         Hanging,
@@ -20,7 +21,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         PlayersReached,
         BettingEnd,
         RevealWinner,
-        PendingReclaimed
+        WinnerRevealed
     }
 	GameState public state;
 
@@ -28,6 +29,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
     mapping(uint8 => uint8) public validBets;
 
 	event LogStateChange(GameState gameState);
+    event LogWinnerIndex(uint8 _winnerIndex);
 
 	function RockPaperScissors() public {
         state = GameState.Hanging;
@@ -98,11 +100,25 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         return true;
     }
 
-	function widthdrawal(uint256 _amount) public returns (bool) {
-        return true;
-    }
+	function revealWinner(address _player1, address _player2)
+        public
+        onlyOwner
+        returns (bool)
+    {
+        require(state == GameState.RevealWinner);
 
-	function checkWinner() public returns (bool) {
+        Player player1 = getPlayer(_player1);
+        Player player2 = getPlayer(_player2);
+
+        uint8 player1Bet = player1.bet();
+        uint8 player2Bet = player2.bet();
+        winnerIndex = getWinnerIndex(player1Bet, player2Bet);
+
+        require(winnerIndex > 0);
+        emit LogWinnerIndex(winnerIndex);
+
+        state = GameState.WinnerRevealed;
+        emit LogStateChange(state);
         return true;
     }
 
@@ -131,6 +147,23 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
     function getPlayer(address _player) public view returns (Player) {
         require(players[_player] != address(0x0));
         return Player(players[_player]);
+    }
+
+    function getWinnerIndex(uint8 _player1Bet, uint8 _player2Bet)
+        public
+        view
+        returns (uint8 index)
+    {
+        require(validBets[_player1Bet] != 0x0);
+        require(validBets[_player2Bet] != 0x0);
+
+        if (_player1Bet == _player2Bet) {
+            index = 3;
+        } else if (validBets[_player1Bet] == _player2Bet) {
+            index = 1;
+        } else {
+            index = 2;
+        }
     }
 }
 

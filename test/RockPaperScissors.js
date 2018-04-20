@@ -450,6 +450,159 @@ contract('RockPaperScissors', accounts => {
 			});
 		});
 	});
+
+	describe('revealWinner', () => {
+
+		beforeEach(async() => {
+			await instance.createGame(amount, end, { from: owner });
+			await instance.addPlayer(player1, { from: owner });
+			await instance.addPlayer(player2, { from: owner });
+			await instance.bet(player1, hashBet, { from: owner });
+			await instance.bet(player2, hashBet, { from: owner });
+			await instance.revealBet(player1, bet, secretKey, { from: owner });
+		});
+
+		describe('fail case', () => {
+
+			it('should fail with value in transaction', async() => {
+				await TestUtils.noValue(instance.revealWinner(
+					player1, player2,
+					{ from: owner, value: 1 }
+				));
+			});
+
+			it('should fail no owner transaction', async() => {
+				await instance.revealBet(player2, bet, secretKey, { from: owner });
+
+				try {
+					const txObject = await instance.revealWinner(
+						player1, player2,
+						{ from: player1 }
+					);
+					assert.isUndefined(txObject, 'transaction by no owner');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert on no owner transaction'
+					);
+				}
+			});
+
+			it('should fail on state not equal RevealWinner', async() => {
+
+				try {
+					const txObject = await instance.revealWinner(
+						player1, player2,
+						{ from: owner }
+					);
+					assert.isUndefined(txObject, 'reveal accepted on wrong state');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert on wrong state'
+					);
+				}
+			});
+
+			it('should fail if player does not exist', async () => {
+				await instance.revealBet(player2, bet, secretKey, { from: owner });
+
+				try {
+					const txObject = await instance.revealWinner(
+						accounts[4], player2,
+						{ from: owner }
+					);
+					assert.isUndefined(txObject, 'undefined player');
+				} catch (err) {
+					assert.include(
+						err.message,
+						'revert',
+						'no revert for undefined player'
+					);
+				}
+			});
+		});
+
+		describe('success case', () => {
+
+			let txObject;
+
+			it('should change the state', async() => {
+				await instance.revealBet(player2, bet, secretKey, { from: owner });
+				txObject = await instance.revealWinner(
+					player2, player2,
+					{ from: owner }
+				);
+
+				const winnerIndex = await instance.winnerIndex();
+				assert.equal(winnerIndex.toString(10), 3, 'wrong index');
+
+				const state = await instance.state();
+				assert.equal(state, 5, 'wrong state');
+			});
+
+			it('should emit logs', () => {
+				const { logs } = txObject;
+				assert.equal(logs[0].event, 'LogWinnerIndex', 'no LogWinnerIndex');
+				assert.equal(logs[1].event, 'LogStateChange', 'no LogStateChange');
+				assert.equal(logs[0].args._winnerIndex, 3, 'wrong index in log');
+				assert.equal(logs[1].args.gameState, 5, 'wrong state in log');
+			});
+		});
+	});
+
+	describe('getWinnerIndex', () => {
+
+		describe('fail case', () => {
+
+			it('should revert on invalid values', async() => {
+				try {
+					const txObject = await instance.getWinnerIndex(
+						1, 4,
+						{ from: owner }
+					);
+					assert.isUndefined(txObject, 'accept invalid value');
+				} catch (err) {
+					assert.include(err.message, 'revert', 'no revert invalid value');
+				}
+			});
+		});
+
+		describe('success case', async() => {
+
+			it('should win ROCK vs SCISSORS', async() => {
+				const winIndex = await instance.getWinnerIndex(1, 3, { from: owner });
+				assert.equal(winIndex.toString(10), 1, 'wrong index');
+			});
+
+			it('should loose ROCK vs PAPER', async() => {
+				const winIndex = await instance.getWinnerIndex(1, 2, { from: owner });
+				assert.equal(winIndex.toString(10), 2, 'wrong index');
+			});
+
+			it('should loose PAPER vs SCISSORS', async() => {
+				const winIndex = await instance.getWinnerIndex(2, 3, { from: owner });
+				assert.equal(winIndex.toString(10), 2, 'wrong index');
+			});
+
+			it('should draw PAPER vs PAPER', async() => {
+				const winIndex = await instance.getWinnerIndex(2, 2, { from: owner });
+				assert.equal(winIndex.toString(10), 3, 'wrong index');
+			});
+
+			it('should draw ROCK vs ROCK', async() => {
+				const winIndex = await instance.getWinnerIndex(1, 1, { from: owner });
+				assert.equal(winIndex.toString(10), 3, 'wrong index');
+			});
+
+			it('should draw SCISSORS vs SCISSORS', async() => {
+				const winIndex = await instance.getWinnerIndex(3, 3, { from: owner });
+				assert.equal(winIndex.toString(10), 3, 'wrong index');
+			});
+		});
+	});
 });
 
 // contract('RockPaperScissors',  accounts => {

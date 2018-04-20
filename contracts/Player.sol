@@ -34,7 +34,6 @@ contract Player is Ownable {
 		require(hashBet != 0x0);
 
 		bet = _bet;
-
 		emit LogBet(bet);
 		return true;
 	}
