@@ -9,8 +9,16 @@ const noValue = async (promise, type = 'function') => {
 			'No error passing value in contructor transaction'
 		);
 	}
-}
+};
+
+const getTxFee = txObject => {
+    const gasUsed = txObject.receipt.gasUsed;
+    const transaction = web3.eth.getTransaction(txObject.tx);
+    const gasPrice = transaction.gasPrice;
+    return gasPrice.times(gasUsed);
+};
 
 module.exports = {
-	noValue
+	noValue,
+	getTxFee
 }
