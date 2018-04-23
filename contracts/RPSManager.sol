@@ -3,7 +3,6 @@ pragma solidity 0.4.21;
 import "./Ownable.sol";
 import "./RockPaperScissors.sol";
 import "./SafeMath.sol";
-import "./Player.sol";
 
 contract RPSManager is Ownable {
 
@@ -107,6 +106,7 @@ contract RPSManager is Ownable {
 		uint8 winnerIndex = rps.winnerIndex();
 
 		require(updateBalances(winnerIndex, betAmount, player1, player2));
+		rps.setOver();
 		return true;
 	}
 
@@ -169,6 +169,7 @@ contract RPSManager is Ownable {
 		returns (bool)
 	{
 		RockPaperScissors rps = getGame(_gameId);
+		require(uint(rps.state()) == 4);
 		require(block.number > rps.end());
 		require(rps.playerHasBet(msg.sender));
 
@@ -179,6 +180,14 @@ contract RPSManager is Ownable {
 
 		uint256 balance = rps.betAmount();
 		require(creaditPlayer(msg.sender, balance * 2));
+		rps.setOver();
+		return true;
+	}
+
+	function withdrawal(uint256 amount) public returns (bool) {
+		require(balances[msg.sender] >= amount);
+		balances[msg.sender] = balances[msg.sender].sub(amount);
+		require(msg.sender.send(amount));
 		return true;
 	}
 
