@@ -166,4 +166,8 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
             index = 2;
         }
     }
+
+	function() public payable {
+		revert();
+	}
 }

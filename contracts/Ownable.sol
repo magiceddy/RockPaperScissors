@@ -12,4 +12,13 @@ contract Ownable {
 	function Ownable() public {
 		owner = msg.sender;
 	}
+
+	function changeOwner(address newOwner) public onlyOwner returns (bool) {
+		owner = newOwner;
+		return true;
+	}
+
+	function() public payable {
+		revert();
+	}
 }

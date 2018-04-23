@@ -37,4 +37,8 @@ contract Player is Ownable {
 		emit LogBet(bet);
 		return true;
 	}
+
+	function() public payable {
+		revert();
+	}
 }

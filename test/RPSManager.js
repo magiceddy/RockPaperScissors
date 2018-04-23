@@ -198,7 +198,7 @@ contract('RPSManager', accounts => {
 			it('should fail transaction by no player', async() => {
 				try {
 					const txObject = await instance.setBet(
-						hashGameId, hashBet,
+						hashGameId, hashBet, false,
 						{ from: accounts[3], value: amount }
 					);
 					assert.isUndefined(txObject, 'bet from non player');
@@ -207,15 +207,27 @@ contract('RPSManager', accounts => {
 				}
 			});
 
-			it('shoulf fail with wrong value', async() => {
+			it('should fail with wrong value', async() => {
 				try {
 					const txObject = await instance.setBet(
-						hashGameId, hashBet,
+						hashGameId, hashBet, false,
 						{ from: player1, value: 567 }
 					);
 					assert.isUndefined(txObject, 'bet with wrong amount');
 				} catch (err) {
 					assert.include(err.message, 'revert', 'no revert with wrong amount');
+				}
+			});
+
+			it('should fail on low balance', async() => {
+				try {
+					const txObject = await instance.setBet(
+						hashGameId, hashBet, true,
+						{ from: player1 }
+					);
+					assert.isUndefined(txObject, 'bet with low balance');
+				} catch (err) {
+					assert.include(err.message, 'revert', 'no revert with low amount');
 				}
 			});
 		});
@@ -224,7 +236,7 @@ contract('RPSManager', accounts => {
 
 			it('should set the bet', async() => {
 				const txObject = await instance.setBet(
-					hashGameId, hashBet,
+					hashGameId, hashBet, false,
 					{ from: player1, value: amount }
 				);
 				const instanceBalance = await web3.eth.getBalance(instance.address);
@@ -241,8 +253,14 @@ contract('RPSManager', accounts => {
 				{ from: player1 }
 			);
 			await instance.addPlayer(hashGameId, { from: player2 });
-			await instance.setBet(hashGameId, hashBet, { from: player1, value: amount });
-			await instance.setBet(hashGameId, hashBet, { from: player2, value: amount });
+			await instance.setBet(
+				hashGameId, hashBet, false,
+				{ from: player1, value: amount }
+			);
+			await instance.setBet(
+				hashGameId, hashBet, false,
+				{ from: player2, value: amount }
+			);
 		});
 
 		describe('fail case', () => {
@@ -293,8 +311,14 @@ contract('RPSManager', accounts => {
 				{ from: player1 }
 			);
 			await instance.addPlayer(hashGameId, { from: player2 });
-			await instance.setBet(hashGameId, hashBet, { from: player1, value: amount });
-			await instance.setBet(hashGameId, hashBet, { from: player2, value: amount });
+			await instance.setBet(
+				hashGameId, hashBet, false,
+				{ from: player1, value: amount }
+			);
+			await instance.setBet(
+				hashGameId, hashBet, false,
+				{ from: player2, value: amount }
+			);
 			await instance.revealBet(hashGameId, bet, secretKey, { from: player1 });
 			await instance.revealBet(hashGameId, bet, secretKey, { from: player2 });
 		});
@@ -378,6 +402,17 @@ contract('RPSManager', accounts => {
 				const rpsAddress = instance.getGame.call(hashGameId, { from: player1 });
 				assert.isDefined(rpsAddress, 'game not exixts');
 			});
+		});
+	});
+
+	describe('fallback function', () => {
+
+		it('should revert', async() => {
+			try {
+				await instance.send(web3.toWei(1, "wei"));
+			} catch (err) {
+				assert.include(err.message, 'revert');
+			}
 		});
 	});
 });

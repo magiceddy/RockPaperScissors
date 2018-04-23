@@ -617,4 +617,15 @@ contract('RockPaperScissors', accounts => {
 			});
 		});
 	});
+
+	describe('fallback function', () => {
+
+		it('should revert', async() => {
+			try {
+				await instance.send(web3.toWei(1, "wei"));
+			} catch (err) {
+				assert.include(err.message, 'revert');
+			}
+		});
+	});
 });

@@ -15,7 +15,7 @@ library SafeMath {
 		return a / b;
 	}
 
-	function sun(uint256 a, uint256 b) internal pure returns (uint256) {
+	function sub(uint256 a, uint256 b) internal pure returns (uint256) {
 		assert(b <= a);
 		return a - b;
 	}
