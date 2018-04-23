@@ -41,6 +41,7 @@ contract RPSManager is Ownable {
 
 		games[_gameId] = Game(new address[](0), new RockPaperScissors());
 		RockPaperScissors rps = getGame(_gameId);
+		
 		require(rps.createGame(_amount, _end));
 		emit LogNewGame(_gameId, rps);
 
