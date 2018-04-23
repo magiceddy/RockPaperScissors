@@ -29,7 +29,8 @@ contract('RockPaperScissors', accounts => {
 		{
 			t: 'bytes32',
 			v: secretKey
-		});
+		}
+	);
 
 
 	beforeEach(async() => {
@@ -408,6 +409,19 @@ contract('RockPaperScissors', accounts => {
 					assert.isUndefined(txObject, 'double reveal');
 				} catch (err) {
 					assert.include(err.message, 'revert', 'no revert double reveal');
+				}
+			});
+
+			it('should fail on invalid bet', async() => {
+				await instance.bet(player2, hashBet, { from: owner });
+				 try {
+					 const txObject = await await instance.revealBet(
+	 					player1, 5, secretKey,
+	 					{ from: owner }
+	 				);
+					assert.isUndefined(txObject, 'accept invalid bet');
+				} catch (err) {
+					assert.include(err.message, 'revert', 'no revert with invalid bet');
 				}
 			});
 		});
