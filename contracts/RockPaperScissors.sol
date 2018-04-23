@@ -21,7 +21,8 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         PlayersReached,
         BettingEnd,
         RevealWinner,
-        WinnerRevealed
+        WinnerRevealed,
+		Over
     }
 	GameState public state;
 
@@ -171,6 +172,10 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
             index = 2;
         }
     }
+
+	function setOver() public onlyOwner returns (bool) {
+		state = GameState.Over;
+	}
 
 	function() public payable {
 		revert();
