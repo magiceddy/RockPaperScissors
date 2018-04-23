@@ -127,6 +127,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         onlyOwner
         returns (bool)
     {
+        require(_bet > 0 && _bet <= 3);
         require(state == GameState.BettingEnd);
 
         Player player = getPlayer(_player);
