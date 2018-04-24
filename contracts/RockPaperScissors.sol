@@ -88,7 +88,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         require(_bet != 0x0);
 
         Player player = getPlayer(_player);
-        require(player.setHashBet(_bet));
+        player.setHashBet(_bet);
         betCount++;
 
         emit LogBet(_player, _bet);
@@ -134,7 +134,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         Player player = getPlayer(_player);
         require(keccak256(_bet, _secretKey) == player.hashBet());
 
-        require(player.setBet(_bet));
+        player.setBet(_bet);
         revealCount++;
 
         emit LogRevealBet(_player, _bet, revealCount);

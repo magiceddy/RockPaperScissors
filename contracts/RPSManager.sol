@@ -38,11 +38,11 @@ contract RPSManager is Ownable, Bank {
 		games[_gameId] = Game(new address[](0), new RockPaperScissors());
 		RockPaperScissors rps = getGame(_gameId);
 
-		require(rps.createGame(_amount, _end));
+		rps.createGame(_amount, _end);
 		emit LogNewGame(_gameId, rps);
 
 		if(_addPlayer) {
-			require(addPlayer(_gameId));
+			addPlayer(_gameId);
 		}
 		return true;
 	}
@@ -52,7 +52,7 @@ contract RPSManager is Ownable, Bank {
 
 		RockPaperScissors rps = getGame(_gameId);
 
-		require(rps.addPlayer(msg.sender));
+		rps.addPlayer(msg.sender);
 		games[_gameId].players.push(msg.sender);
 
 		if(!accounts[msg.sender]) {
@@ -78,7 +78,7 @@ contract RPSManager is Ownable, Bank {
 			require(msg.value == amount);
 		}
 
-		require(rps.bet(msg.sender, _hashBet));
+		rps.bet(msg.sender, _hashBet);
 		return true;
 	}
 
@@ -88,7 +88,7 @@ contract RPSManager is Ownable, Bank {
 		returns (bool)
 	{
 		RockPaperScissors rps = getGame(_gameId);
-		require(rps.revealBet(msg.sender, _bet, _secretKey));
+		rps.revealBet(msg.sender, _bet, _secretKey);
 		return true;
 	}
 
@@ -102,10 +102,10 @@ contract RPSManager is Ownable, Bank {
 		address player2 = games[_gameId].players[1];
 		uint256 betAmount = rps.betAmount();
 
-		require(rps.revealWinner(player1, player2));
+		rps.revealWinner(player1, player2);
 		uint8 winnerIndex = rps.winnerIndex();
 
-		require(updateBalances(winnerIndex, betAmount, player1, player2));
+		updateBalances(winnerIndex, betAmount, player1, player2);
 		rps.setOver();
 		return true;
 	}
@@ -161,7 +161,7 @@ contract RPSManager is Ownable, Bank {
 		require(!rps.playerHasBet(opponentPlayer));
 
 		uint256 balance = rps.betAmount();
-		require(credit(msg.sender, balance * 2));
+		credit(msg.sender, balance * 2);
 		rps.setOver();
 		return true;
 	}
@@ -170,46 +170,6 @@ contract RPSManager is Ownable, Bank {
 		require(balances[msg.sender] >= amount);
 		debit(msg.sender, amount);
 
-		require(msg.sender.send(amount));
-		return true;
-	}
-
-	function getOpponentIndex(bytes32 _gameId, address player)
-		public
-		view
-		returns (uint8)
-	{
-		if(games[_gameId].players[0] == player) {
-			return 1;
-		} else {
-			return 0;
-		}
-	}
-
-	function claimBack(bytes32 _gameId)
-		public
-		isPlayer(_gameId)
-		returns (bool)
-	{
-		RockPaperScissors rps = getGame(_gameId);
-		require(uint(rps.state()) == 4);
-		require(block.number > rps.end());
-		require(rps.playerHasBet(msg.sender));
-
-		uint8 opponentIndex = getOpponentIndex(_gameId, msg.sender);
-		address opponentPlayer = games[_gameId].players[opponentIndex];
-
-		require(!rps.playerHasBet(opponentPlayer));
-
-		uint256 balance = rps.betAmount();
-		require(creaditPlayer(msg.sender, balance * 2));
-		rps.setOver();
-		return true;
-	}
-
-	function withdrawal(uint256 amount) public returns (bool) {
-		require(balances[msg.sender] >= amount);
-		balances[msg.sender] = balances[msg.sender].sub(amount);
 		require(msg.sender.send(amount));
 		return true;
 	}
