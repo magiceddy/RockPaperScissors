@@ -2,11 +2,9 @@ pragma solidity 0.4.21;
 
 import "./Ownable.sol";
 import "./RockPaperScissors.sol";
-import "./SafeMath.sol";
+import "./Bank.sol";
 
-contract RPSManager is Ownable {
-
-	using SafeMath for uint256;
+contract RPSManager is Ownable, Bank {
 
 	struct Game {
 		address[] players;
@@ -14,7 +12,6 @@ contract RPSManager is Ownable {
 	}
 
 	mapping(bytes32 => Game) public games;
-	mapping(address => uint256) public balances;
 
 	modifier isPlayer(bytes32 _id) {
 		require(
@@ -26,7 +23,6 @@ contract RPSManager is Ownable {
 
 	event LogNewGame(bytes32 indexed gameId, RockPaperScissors rpsAddress);
 	event LogAddPlayerToGame(bytes32 indexed gameId, address indexed player);
-	event LogUpdateBalance(address indexed player, uint256 balance);
 
 	function createNewGame(
 		bytes32 _gameId,
@@ -59,6 +55,10 @@ contract RPSManager is Ownable {
 		require(rps.addPlayer(msg.sender));
 		games[_gameId].players.push(msg.sender);
 
+		if(!accounts[msg.sender]) {
+			addAccount(msg.sender);
+		}
+
 		emit LogAddPlayerToGame(_gameId, msg.sender);
 		return true;
 	}
@@ -72,8 +72,8 @@ contract RPSManager is Ownable {
 		RockPaperScissors rps = getGame(_gameId);
 		uint256 amount = rps.betAmount();
 
-		if(useBalance && checkBalanceOnBet(amount, msg.value)) {
-			debitPlayer(msg.sender, amount);
+		if(useBalance && canUseBalance(amount, msg.value)) {
+			debit(msg.sender, amount);
 		} else {
 			require(msg.value == amount);
 		}
@@ -125,35 +125,17 @@ contract RPSManager is Ownable {
 		returns (bool)
 	{
 		if (winnerIndex == 1) {
-			creaditPlayer(player1, betAmount * 2);
+			credit(player1, betAmount * 2);
 		} else if( winnerIndex == 2) {
-			creaditPlayer(player2, betAmount * 2);
+			credit(player2, betAmount * 2);
 		} else if( winnerIndex == 3){
-			creaditPlayer(player1, betAmount);
-			creaditPlayer(player2, betAmount);
+			credit(player1, betAmount);
+			credit(player2, betAmount);
 		}
 		return true;
 	}
 
-	function creaditPlayer(address player, uint256 amount)
-		internal
-		returns (bool)
-	{
-		balances[player] = balances[player].add(amount);
-		emit LogUpdateBalance(player, balances[player]);
-		return true;
-	}
-
-	function debitPlayer(address player, uint256 amount)
-		internal
-		returns (bool)
-	{
-		balances[player] = balances[player].sub(amount);
-		emit LogUpdateBalance(player, balances[player]);
-		return true;
-	}
-
-	function checkBalanceOnBet(uint256 amount, uint256 msgValue)
+	function canUseBalance(uint256 amount, uint256 msgValue)
 		public
 		view
 		returns (bool)
@@ -161,6 +143,47 @@ contract RPSManager is Ownable {
 		require(msgValue == 0);
 		require(balances[msg.sender] >= amount);
 		return true;
+	}
+
+	function claimBack(bytes32 _gameId)
+		public
+		isPlayer(_gameId)
+		returns (bool)
+	{
+		RockPaperScissors rps = getGame(_gameId);
+		require(uint(rps.state()) == 4);
+		require(block.number > rps.end());
+		require(rps.playerHasBet(msg.sender));
+
+		uint8 opponentIndex = getOpponentIndex(_gameId, msg.sender);
+		address opponentPlayer = games[_gameId].players[opponentIndex];
+
+		require(!rps.playerHasBet(opponentPlayer));
+
+		uint256 balance = rps.betAmount();
+		require(credit(msg.sender, balance * 2));
+		rps.setOver();
+		return true;
+	}
+
+	function withdrawal(uint256 amount) public returns (bool) {
+		require(balances[msg.sender] >= amount);
+		debit(msg.sender, amount);
+
+		require(msg.sender.send(amount));
+		return true;
+	}
+
+	function getOpponentIndex(bytes32 _gameId, address player)
+		public
+		view
+		returns (uint8)
+	{
+		if(games[_gameId].players[0] == player) {
+			return 1;
+		} else {
+			return 0;
+		}
 	}
 
 	function claimBack(bytes32 _gameId)
