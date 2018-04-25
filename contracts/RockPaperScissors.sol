@@ -152,8 +152,13 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 
     function playerHasBet(address _player) public view returns (bool) {
         Player player = getPlayer(_player);
-        return player.bet() > 0 ? true : false;
+        return player.hasBet();
     }
+
+	function playerHasReveal(address _player) public view returns (bool) {
+		Player player = getPlayer(_player);
+		return player.bet() > 0 ? true : false;
+	}
 
     function getWinnerIndex(uint8 _player1Bet, uint8 _player2Bet)
         public

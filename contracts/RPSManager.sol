@@ -157,7 +157,7 @@ contract RPSManager is Ownable, Bank {
 		uint8 opponentIndex = getOpponentIndex(_gameId, msg.sender);
 		address opponentPlayer = games[_gameId].players[opponentIndex];
 
-		require(!rps.playerHasBet(opponentPlayer));
+		require(!rps.playerHasReveal(opponentPlayer));
 
 		uint256 balance = rps.betAmount();
 		credit(msg.sender, balance * 2);
