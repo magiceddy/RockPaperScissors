@@ -151,7 +151,6 @@ contract RPSManager is Ownable, Bank {
 		returns (bool)
 	{
 		RockPaperScissors rps = getGame(_gameId);
-		require(uint(rps.state()) == 4);
 		require(block.number > rps.end());
 		require(rps.playerHasBet(msg.sender));
 
