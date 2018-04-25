@@ -52,11 +52,11 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         require(state == GameState.Hanging);
 
         betAmount = _betAmount;
-	    end = _endGame;
-	    emit LogNewGame(betAmount, end);
+        end = _endGame;
+        emit LogNewGame(betAmount, end);
 
-	    state = GameState.Created;
-	    emit LogStateChange(state);
+        state = GameState.Created;
+        emit LogStateChange(state);
         return true;
     }
 
@@ -77,7 +77,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
     }
 
     function bet(address _player, bytes32 _bet)
-	    public
+        public
         payable
         onlyOwner
         returns (bool)
@@ -101,7 +101,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
 	}
 
     function revealWinner(address _player1, address _player2)
-	    public
+        public
         onlyOwner
         returns (bool)
     {
