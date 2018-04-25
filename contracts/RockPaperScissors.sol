@@ -5,34 +5,33 @@ import "./Ownable.sol";
 import "./Player.sol";
 
 contract RockPaperScissors is IRockPaperScissors, Ownable {
+    uint8 public constant MAX_PLAYERS = 2;
 
-	uint8 public constant MAX_PLAYERS = 2;
-
-	uint256 public betAmount;
-	uint256 public end;
+    uint256 public betAmount;
+    uint256 public end;
     uint8 public playersCount;
     uint8 public betCount;
     uint8 public revealCount;
     uint8 public winnerIndex;
 
-	enum GameState {
+    enum GameState {
         Hanging,
         Created,
         PlayersReached,
         BettingEnd,
         RevealWinner,
         WinnerRevealed,
-		Over
+        Over
     }
-	GameState public state;
+    GameState public state;
 
     mapping(address => Player) public players;
     mapping(uint8 => uint8) public validBets;
 
-	event LogStateChange(GameState gameState);
+    event LogStateChange(GameState gameState);
     event LogWinnerIndex(uint8 _winnerIndex);
 
-	function RockPaperScissors() public {
+    function RockPaperScissors() public {
         state = GameState.Hanging;
         validBets[1] = 3; // Rock
         validBets[2] = 1; // Paper
@@ -41,31 +40,31 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         emit LogStateChange(state);
     }
 
-	function createGame(
+    function createGame(
         uint256 _betAmount,
         uint256 _endGame
     )
-		public
+        public
         onlyOwner
-		returns (bool)
-	{
-		require(_endGame > 0);
+        returns (bool)
+    {
+        require(_endGame > 0);
         require(state == GameState.Hanging);
 
-		betAmount = _betAmount;
-		end = _endGame;
-		emit LogNewGame(betAmount, end);
+        betAmount = _betAmount;
+	    end = _endGame;
+	    emit LogNewGame(betAmount, end);
 
-		state = GameState.Created;
-		emit LogStateChange(state);
-		return true;
-	}
+	    state = GameState.Created;
+	    emit LogStateChange(state);
+        return true;
+    }
 
-	function addPlayer(address _player) public  onlyOwner returns (bool) {
+    function addPlayer(address _player) public  onlyOwner returns (bool) {
         require(state == GameState.Created);
         require(playersCount < 2);
 
-		players[_player] = new Player(_player);
+        players[_player] = new Player(_player);
         playersCount++;
 
         emit LogNewPlayer(_player);
@@ -74,11 +73,11 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
             state = GameState.PlayersReached;
             emit LogStateChange(state);
         }
-		return true;
-	}
+        return true;
+    }
 
-	function bet(address _player, bytes32 _bet)
-        public
+    function bet(address _player, bytes32 _bet)
+	    public
         payable
         onlyOwner
         returns (bool)
@@ -99,10 +98,10 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         }
 
         return true;
-    }
+	}
 
-	function revealWinner(address _player1, address _player2)
-        public
+    function revealWinner(address _player1, address _player2)
+	    public
         onlyOwner
         returns (bool)
     {
@@ -123,7 +122,7 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         return true;
     }
 
-	function revealBet(address _player, uint8 _bet, bytes32 _secretKey)
+    function revealBet(address _player, uint8 _bet, bytes32 _secretKey)
         public
         onlyOwner
         returns (bool)
@@ -151,10 +150,10 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         return Player(players[_player]);
     }
 
-	function playerHasBet(address _player) public view returns (bool) {
-		Player player = getPlayer(_player);
-		return player.bet() > 0 ? true : false;
-	}
+    function playerHasBet(address _player) public view returns (bool) {
+        Player player = getPlayer(_player);
+        return player.bet() > 0 ? true : false;
+    }
 
     function getWinnerIndex(uint8 _player1Bet, uint8 _player2Bet)
         public
@@ -173,11 +172,11 @@ contract RockPaperScissors is IRockPaperScissors, Ownable {
         }
     }
 
-	function setOver() public onlyOwner returns (bool) {
-		state = GameState.Over;
-	}
+    function setOver() public onlyOwner returns (bool) {
+        state = GameState.Over;
+    }
 
-	function() public payable {
-		revert();
-	}
+    function() public payable {
+        revert();
+    }
 }
