@@ -2,10 +2,15 @@ pragma solidity 0.4.21;
 
 import "./Ownable.sol";
 import "./SafeMath.sol";
+import "./FoundManager.sol";
 
-contract RPSManager is Ownable {
+contract RPSManager is Ownable, FoundManager {
 
 	using SafeMath for uint256;
+
+	uint8 public commission = 15;
+	uint256 public minDeposit = 1;
+	uint256 public minimumBet = 1;
 
 	enum RpsMapBet { Rock, Paper, Scissors }
 
@@ -25,8 +30,6 @@ contract RPSManager is Ownable {
 	}
 
 	mapping(bytes32 => Game) public games;
-	mapping(address => uint256) public balances;
-	mapping(address => bool) public lockedBalances;
 
 	modifier isPlayer(bytes32 _id) {
 		require(
@@ -49,14 +52,10 @@ contract RPSManager is Ownable {
 	event LogPlayerJoined(address player);
 	event LogBet(bytes32 hashBet, uint8 betCount);
 	event LogRevealBet(uint8 bet, uint8 revealCount);
-	event LogLockBalance(address addressLocked);
-	event LogUnlockBalance(address addressLocked);
 	event LogWinnerIndex(uint8 index);
 	event LogRestartGame(bytes32 gameId);
 	event LogDeleteGame(bytes32 gameId);
 	event LogWithdrawal(uint256 amount);
-	event LogDebit(uint256 amount);
-	event LogCredit(uint256 amount);
 
 	function createNewGame(
 		bytes32 _gameId,
@@ -87,19 +86,20 @@ contract RPSManager is Ownable {
 		returns (bool)
 	{
 		Game storage game = games[_gameId];
+
 		require(game.created);
 		require(game.playersAddress.length <= 2);
+		require(publicBalances[msg.sender] >= game.amount);
 
 		game.playersAddress.push(msg.sender);
-		game.players[msg.sender] = Player(0,0);
+		game.players[msg.sender] = Player(0, 0);
 
 		emit LogPlayerJoined(msg.sender);
 		return true;
 	}
 
-	function setBet(bytes32 _gameId, bytes32 _hashBet, bool useBalance)
+	function setBet(bytes32 _gameId, bytes32 _hashBet)
 		public
-		payable
 		isPlayer(_gameId)
 		gameRunning(_gameId)
 		returns (bool)
@@ -111,22 +111,18 @@ contract RPSManager is Ownable {
 		require(game.betCount < 2);
 		require(game.players[msg.sender].hashBet == 0x0);
 
-		uint256 amount = game.amount;
+		uint256 gameBetAmount = game.amount;
 
-		if(useBalance) {
-			require(msg.value == 0);
-			require(balances[msg.sender] >= amount);
+		if (debitPublicBalance(msg.sender, gameBetAmount)) {
+			creditGameBalance(_gameId, gameBetAmount);
 		} else {
-			require(msg.value == amount);
-			credit(msg.sender, amount);
+			revert();
 		}
 
-		lockedBalances[msg.sender] = true;
 		game.players[msg.sender].hashBet = _hashBet;
 		game.betCount++;
 
 		emit LogBet(_hashBet, game.betCount);
-		emit LogLockBalance(msg.sender);
 		return true;
 	}
 
@@ -148,11 +144,15 @@ contract RPSManager is Ownable {
 		game.revealCount++;
 
 		emit LogRevealBet(_bet, game.revealCount);
+
+		if (game.revealCount == 2) {
+			revealWinner(_gameId);
+		}
         return true;
 	}
 
 	function revealWinner(bytes32 _gameId)
-		public
+		internal
 		gameRunning(_gameId)
 		returns (bool)
 	{
@@ -166,18 +166,9 @@ contract RPSManager is Ownable {
 		uint256 amount = game.amount;
 
 		uint8 winnerIndex = getWinnerIndex(player1Bet, player2Bet);
+		updateBalances(_gameId, winnerIndex, amount, player1, player2);
 
-		if(winnerIndex != 0) {
-		    updateBalances(winnerIndex, amount, player1, player2);
-		}
-
-        emit LogWinnerIndex(winnerIndex);
-
-		lockedBalances[player1] = false;
-		emit LogUnlockBalance(player1);
-
-		lockedBalances[player2] = false;
-		emit LogUnlockBalance(player2);
+		emit LogWinnerIndex(winnerIndex);
 
 		restartGame(game, player1, player2);
 		emit LogRestartGame(_gameId);
@@ -203,14 +194,10 @@ contract RPSManager is Ownable {
 		Game storage game = games[_gameId];
 		canClaimBack(game);
 
-		uint256 betAmount = game.amount;
-		address opponentPlayer = getOpponentAddress(game, msg.sender);
+		uint256 betAmount = gameBalances[_gameId];
 
-		debit(opponentPlayer, betAmount);
-		credit(msg.sender, betAmount);
-
-		lockedBalances[msg.sender] = false;
-		emit LogUnlockBalance(msg.sender);
+		debitGameBalance(_gameId, betAmount);
+		creditPublicBalance(msg.sender, betAmount);
 
 		delete games[_gameId];
 		emit LogDeleteGame(_gameId);
@@ -230,6 +217,7 @@ contract RPSManager is Ownable {
 	}
 
 	function updateBalances(
+		bytes32 _gameId,
 		uint8 winnerIndex,
 		uint256 betAmount,
 		address player1,
@@ -238,56 +226,28 @@ contract RPSManager is Ownable {
 		internal
 		returns (bool)
 	{
-		require(winnerIndex > 0 && winnerIndex <= 2);
+		require(0 <= winnerIndex && winnerIndex <= 2);
+
+		debitGameBalance(_gameId, betAmount.mul(2));
 
 		if (winnerIndex == 1) {
-			debit(player2, betAmount);
-			credit(player1, betAmount);
+			creditPublicBalance(player1, betAmount.mul(2));
+		} else if (winnerIndex == 2) {
+			creditPublicBalance(player2, betAmount.mul(2));
 		} else {
-			debit(player1, betAmount);
-			credit(player2, betAmount);
+			creditPublicBalance(player1, betAmount);
+			creditPublicBalance(player2, betAmount);
 		}
 		return true;
 	}
 
 	function withdrawal(uint256 _amount) public returns (bool) {
-		require(balances[msg.sender] >= _amount);
-		require(!lockedBalances[msg.sender]);
+		require(publicBalances[msg.sender] >= _amount);
 
-		debit(msg.sender, _amount);
+		debitPublicBalance(msg.sender, _amount);
 
 		require(msg.sender.send(_amount));
 		emit LogWithdrawal(_amount);
-		return true;
-	}
-
-	function getOpponentAddress(Game memory game, address player)
-		internal
-		pure
-		returns (address)
-	{
-		return game.playersAddress[0] == player ?
-		game.playersAddress[1] :
-		game.playersAddress[0];
-	}
-
-	function debit(address _account, uint256 _amount)
-		internal
-		returns (bool)
-	{
-		require(balances[_account] >= _amount);
-		balances[_account] = balances[_account].sub(_amount);
-
-		emit LogDebit(_amount);
-		return true;
-	}
-
-	function credit(address _account, uint256 _amount)
-		internal
-		returns (bool)
-	{
-		balances[_account] = balances[_account].add(_amount);
-		emit LogCredit(_amount);
 		return true;
 	}
 
@@ -314,7 +274,6 @@ contract RPSManager is Ownable {
 		}
 	}
 
-
 	function generateHashBet(uint8 _bet, bytes32 _secretKey)
         public
         pure
@@ -323,7 +282,45 @@ contract RPSManager is Ownable {
         return keccak256(_bet, _secretKey);
     }
 
+	function changecommission(uint8 _newCommission)
+		public
+		onlyOwner
+		returns (bool)
+	{
+		commission = _newCommission;
+		return true;
+	}
+
+	function changeMinDeposit(uint256 _newMinDeposit)
+		public
+		onlyOwner
+		returns (bool)
+	{
+		require(_newMinDeposit > 0);
+		minDeposit = _newMinDeposit;
+	}
+
+	function changeMinBet(uint256 _newMinBet) public onlyOwner returns (bool) {
+		require(_newMinBet > 0);
+		minimumBet = _newMinBet;
+		return true;
+	}
+
+	function loadBalances(address _sender, uint256 _deposit)
+		internal
+		returns (bool)
+	{
+		uint256 managerFound = _deposit.mul(commission).div(100);
+		uint256 senderFound = _deposit.sub(managerFound);
+		assert(managerFound.add(senderFound) == _deposit);
+
+		creditOwner(managerFound);
+		creditPublicBalance(_sender, senderFound);
+		return true;
+	}
+
 	function() public payable {
-		revert();
+		require(msg.value >= minDeposit);
+		loadBalances(msg.sender, msg.value);
 	}
 }
